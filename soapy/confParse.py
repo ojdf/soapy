@@ -698,6 +698,8 @@ class DmConfig(ConfigObj):
                              when making iMat                    ``10``
         ``wfs``              int: which Wfs to take iMat and
                              use to correct for.                 ``0``
+        ``altitude``         float: Conjugate altitude of DM
+                             in metres.                          ``0``
         ``rotation``         float: A DM rotation with respect
                              to the pupil in degrees             ``0``
         ``interpOrder``      Order of interpolation for dm,
@@ -729,6 +731,7 @@ class DmConfig(ConfigObj):
                                 ("rotation", 0),
                                 ("interpOrder", 2),
                                 ("gaussWidth", 0.5),
+                                ("altitude", 0)
                                 ]
         self.initParams()
 
