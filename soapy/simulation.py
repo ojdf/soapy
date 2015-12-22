@@ -464,18 +464,18 @@ class Sim(object):
             ndArray: the combined DM shape
         """
         t = time.time()
-        self.dmShape[:] = 0
+        self.dmShapes = []
 
         for dm in xrange(self.config.sim.nDM):
             if self.config.dms[dm].closed==closed:
-                self.dmShape += self.dms[dm].dmFrame(
+                self.dmShapes.append(self.dms[dm].dmFrame(
                         dmCommands[ self.dmAct1[dm]:
                                     self.dmAct1[dm]+self.dms[dm].acts],
                                                     closed
-                                                    )
+                                                    ))
 
         self.Tdm += time.time()-t
-        return self.dmShape
+        return self.dmShapes
 
     def runSciCams(self, dmShape=None):
         """
@@ -512,10 +512,6 @@ class Sim(object):
         self.scrns = self.atmos.moveScrns()
         self.Tatmos = time.time()-t
 
-        # Reset correction
-        self.closedCorrection[:] = 0
-        self.openCorrection[:] = 0
-
         # Run Loop...
         ########################################
 
@@ -524,7 +520,7 @@ class Sim(object):
             self.dmCommands[:] = self.recon.reconstruct(self.slopes)
 
         # Get dmShape from closed loop DMs
-        self.closedCorrection += self.runDM(
+        self.closedCorrection = self.runDM(
                 self.dmCommands, closed=True)
 
         # Run WFS, with closed loop DM shape applied
@@ -532,7 +528,7 @@ class Sim(object):
                                     loopIter=self.iters)
 
         # Get DM shape for open loop DMs, add to closed loop DM shape
-        self.openCorrection += self.runDM(  self.dmCommands,
+        self.openCorrection = self.runDM(  self.dmCommands,
                                             closed=False)
 
         # Pass whole combined DM shapes to science target
@@ -860,10 +856,10 @@ class Sim(object):
         dmTypes = []
         dmGain = []
         for dm in xrange(self.config.sim.nDM):
-            dmActs.append(self.dms[dm].dmConfig.nxActuators)
-            dmConds.append(self.dms[dm].dmConfig.svdConditioning)
-            dmTypes.append(self.dms[dm].dmConfig.type)
-            dmGain.append(self.dms[dm].dmConfig.gain)
+            dmActs.append(self.dms[dm].config.nxActuators)
+            dmConds.append(self.dms[dm].config.svdConditioning)
+            dmTypes.append(self.dms[dm].config.type)
+            dmGain.append(self.dms[dm].config.gain)
         header["DMACTS"] = "{}".format(list(dmActs))
         header["DMCOND"] = "{}".format(list(dmConds))
         header["DMTYPE"] = "{}".format(list(dmTypes))
@@ -968,7 +964,7 @@ class Sim(object):
                 dmShape = {}
                 for i in xrange(self.config.sim.nDM):
                     try:
-                        dmShape[i] = self.dms[i].dmShape.copy()*self.mask
+                        dmShape[i] = self.dms[i].dmShape.copy()# *self.mask
                     except AttributeError:
                         dmShape[i] = None
 

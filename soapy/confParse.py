@@ -197,6 +197,11 @@ class Configurator(object):
                 logger.warning("Setting WFS:{} to have field stop at sub-ap FOV as it only has 1 sub-aperture".format(wfs))
                 wfs.subapFieldStop = True
 
+        # If DMs have metapupil size 0, corresponds to telescope diameter
+        for dm in self.dms:
+            if dm.metaPupilSize == 0:
+                dm.metaPupilSize = self.tel.telDiam
+
 
 class ConfigObj(object):
     def __init__(self):
@@ -700,6 +705,10 @@ class DmConfig(ConfigObj):
                              use to correct for.                 ``0``
         ``altitude``         float: Conjugate altitude of DM
                              in metres.                          ``0``
+        ``metaPupilSize``    float: The diameter of the meta-
+                             pupil covered by the DM at its
+                             conjugate altitude. 0 is
+                             telescope diameter.                 ``0``
         ``rotation``         float: A DM rotation with respect
                              to the pupil in degrees             ``0``
         ``interpOrder``      Order of interpolation for dm,
@@ -731,7 +740,8 @@ class DmConfig(ConfigObj):
                                 ("rotation", 0),
                                 ("interpOrder", 2),
                                 ("gaussWidth", 0.5),
-                                ("altitude", 0)
+                                ("altitude", 0),
+                                ("metaPupilSize", 0),
                                 ]
         self.initParams()
 

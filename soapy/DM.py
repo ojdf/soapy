@@ -65,7 +65,7 @@ class DM(object):
     def __init__ (self, simConfig, dmConfig, wfss, mask):
 
         self.simConfig = simConfig
-        self.dmConfig = dmConfig
+        self.config = dmConfig
         self.wfss = wfss
         self.mask = mask
         self.acts = self.getActiveActs()
@@ -74,13 +74,13 @@ class DM(object):
         self.actCoeffs = numpy.zeros( (self.acts) )
 
         # Sort out which WFS(s) observes the DM (for iMat making)
-        if self.dmConfig.wfs!=None:
+        if self.config.wfs!=None:
             try:
                 # Make sure the specifed WFS actually exists
-                self.wfss = [wfss[self.dmConfig.wfs]]
+                self.wfss = [wfss[self.config.wfs]]
                 self.wfs = self.wfss[0]
             except KeyError:
-                raise KeyError("DM attached to WFS {}, but that WFS is not specifed in config".format(self.dmConfig.wfs))
+                raise KeyError("DM attached to WFS {}, but that WFS is not specifed in config".format(self.config.wfs))
         else:
             self.wfss = wfss
 
@@ -98,7 +98,7 @@ class DM(object):
         Returns:
             int: number of active DM actuators
         """
-        return self.dmConfig.nxActuators
+        return self.config.nxActuators
 
     def makeIMat(self, callback=None):
         '''
@@ -119,15 +119,15 @@ class DM(object):
         self.makeIMatShapes()
 
         # Imat value is in microns
-        # self.iMatShapes *= (self.dmConfig.iMatValue)
+        # self.iMatShapes *= (self.config.iMatValue)
 
-        if self.dmConfig.rotation:
-           self.iMatShapes = rotate(
-                   self.iMatShapes, self.dmConfig.rotation,
-                   order=self.dmConfig.interpOrder, axes=(-2,-1)
+        if self.config.rotation:
+            self.iMatShapes = rotate(
+                   self.iMatShapes, self.config.rotation,
+                   order=self.config.interpOrder, axes=(-2,-1)
                    )
-           rotShape = self.iMatShapes.shape
-           self.iMatShapes = self.iMatShapes[:,
+            rotShape = self.iMatShapes.shape
+            self.iMatShapes = self.iMatShapes[:,
                    rotShape[1]/2. - self.simConfig.simSize/2.:
                    rotShape[1]/2. + self.simConfig.simSize/2.,
                    rotShape[2]/2. - self.simConfig.simSize/2.:
@@ -145,17 +145,17 @@ class DM(object):
             # Set vector of iMat commands to 0...
             actCommands[:] = 0
             # Except the one we want to make an iMat for!
-            actCommands[i] = self.dmConfig.iMatValue
+            actCommands[i] = self.config.iMatValue
             # Now get a DM shape for that command
             self.dmShape = self.makeDMFrame(actCommands)
             for nWfs in range(len(self.wfss)):
                 logger.debug("subap: {}".format(subap))
-                
+
                 # Send the DM shape off to the relavent WFS. put result in iMat
                 iMat[i, subap: subap + (2*self.wfss[nWfs].activeSubaps)] = (
                        self.wfss[nWfs].frame(
-                                self.dmShape, iMatFrame=True
-                       ))/self.dmConfig.iMatValue
+                                scrns=numpy.zeros((self.simConfig.simSize, self.simConfig.simSize)),correction=self.dmShape, iMatFrame=True
+                       ))/self.config.iMatValue
 
                 if callback!=None:
                     callback()
@@ -165,7 +165,7 @@ class DM(object):
 
                 subap += 2*self.wfss[nWfs].activeSubaps
 
-        self.iMat = iMat
+        self.iMat = -1*iMat
         return iMat
 
     def dmFrame(self, dmCommands, closed=False):
@@ -191,11 +191,11 @@ class DM(object):
         # If loop is closed, only add residual measurements onto old
         # actuator values
         if closed:
-            self.actCoeffs += self.dmConfig.gain*self.newActCoeffs
+            self.actCoeffs += self.config.gain*self.newActCoeffs
 
         else:
-            self.actCoeffs = (self.dmConfig.gain * self.newActCoeffs)\
-                + ( (1.-self.dmConfig.gain) * self.actCoeffs)
+            self.actCoeffs = (self.config.gain * self.newActCoeffs)\
+                + ( (1.-self.config.gain) * self.actCoeffs)
 
         self.dmShape = self.makeDMFrame(self.actCoeffs)
         # Remove any piston term from DM
@@ -203,14 +203,28 @@ class DM(object):
 
         return self.dmShape
 
-        # except AttributeError:
-        #     raise AttributeError("DM Missing influence functions. Have you made an interaction matrix?")
-
-   
     def makeDMFrame(self, actCoeffs):
-            
-            dmShape = (self.iMatShapes.T*actCoeffs.T).T.sum(0)
-            return dmShape
+        """
+        Computes the DM shape for a frame given some actuator coefficients
+
+        Paramters:
+            actCoeffs (ndarray): The actuator co-efficients
+
+        Returns:
+            Correction: DM shape Correction object
+        """
+        dmShape = (self.iMatShapes.T*actCoeffs.T).T.sum(0)
+
+        # Scale to the correct size (if meta pupil at altitude)
+        metaPupilSize = int(self.simConfig.simSize * (self.config.metaPupilSize/ ((float(self.simConfig.pupilSize)/self.simConfig.pxlScale))))
+        if metaPupilSize!=self.simConfig.simSize:
+            dmShape = aoSimLib.zoom(dmShape, metaPupilSize)
+        # Convert array to Correction object (just an array rreally)
+        # Can then attach altitude to array
+        dmShape = dmShape.view(Correction)
+        dmShape.altitude = self.config.altitude
+        return dmShape
+
 
 class Zernike(DM):
     """
@@ -253,7 +267,7 @@ class Piezo(DM):
         reconstructing for redundant actuators.
         """
         activeActs = []
-        xActs = self.dmConfig.nxActuators
+        xActs = self.config.nxActuators
         self.spcing = self.simConfig.pupilSize/float(xActs)
 
         for x in xrange(xActs):
@@ -299,7 +313,7 @@ class Piezo(DM):
 
             #Interpolate up to the padded DM size
             shapes[i] = aoSimLib.zoom_rbs(shape,
-                    (dmSize, dmSize), order=self.dmConfig.interpOrder)
+                    (dmSize, dmSize), order=self.config.interpOrder)
 
             shapes[i] -= shapes[i].mean()
 
@@ -337,7 +351,7 @@ class GaussStack(Piezo):
         shapes = numpy.zeros((
                 self.acts, self.simConfig.pupilSize, self.simConfig.pupilSize))
 
-        actSpacing = self.simConfig.pupilSize/(self.dmConfig.nxActuators-1)
+        actSpacing = self.simConfig.pupilSize/(self.config.nxActuators-1)
         width = actSpacing/2.
 
         for i in xrange(self.acts):
@@ -346,7 +360,7 @@ class GaussStack(Piezo):
                     self.simConfig.pupilSize, width, cent = (x,y))
 
         self.iMatShapes = shapes
-       
+
         pad = self.simConfig.simPad
         self.iMatShapes = numpy.pad(
                 self.iMatShapes, ((0,0), (pad,pad), (pad,pad)), mode="constant"
@@ -387,13 +401,13 @@ class FastPiezo(Piezo):
     """
     A DM which simulates a Piezo DM. Faster than standard for big simulations as interpolates on each frame.
     """
-    
+
     def getActiveActs(self):
         acts = super(FastPiezo, self).getActiveActs()
         self.actGrid = numpy.zeros(
-                (self.dmConfig.nxActuators, self.dmConfig.nxActuators))
-   
-        # DM size is the pupil size, but withe one extra act on each side 
+                (self.config.nxActuators, self.config.nxActuators))
+
+        # DM size is the pupil size, but withe one extra act on each side
         self.dmSize =  self.simConfig.pupilSize + 2*numpy.round(self.spcing)
 
         return acts
@@ -403,15 +417,15 @@ class FastPiezo(Piezo):
         self.actGrid[(self.activeActs[:,0], self.activeActs[:,1])] = actCoeffs
 
         # Add space around edge for 1 extra act to avoid edge effects
-        actGrid = numpy.pad(self.actGrid, ((1,1), (1,1)), mode="constant") 
-   
+        actGrid = numpy.pad(self.actGrid, ((1,1), (1,1)), mode="constant")
+
         # Interpolate to previously determined "dmSize"
         dmShape = aoSimLib.zoom_rbs(
-                actGrid, self.dmSize, order=self.dmConfig.interpOrder)
+                actGrid, self.dmSize, order=self.config.interpOrder)
 
-        
-        # Now check if "dmSize" bigger or smaller than "simSize". 
-        # Crop or pad as appropriate 
+
+        # Now check if "dmSize" bigger or smaller than "simSize".
+        # Crop or pad as appropriate
         if self.dmSize>self.simConfig.simSize:
             coord = int(round(self.dmSize/2. - self.simConfig.simSize/2.))
             self.dmShape = dmShape[coord:-coord, coord:-coord].astype("float32")
@@ -421,6 +435,12 @@ class FastPiezo(Piezo):
             self.dmShape = numpy.pad(
                     dmShape, ((pad,pad), (pad,pad)), mode="constant"
                     ).astype("float32")
-       
-        return self.dmShape
-        
+
+        self.dmShape = self.dmShape.view(self.Correction)
+        self.dmShape.altitude = self.config.altitude
+
+class Correction(numpy.ndarray):
+    """
+    An array type which can also accept other parameters, such as DM altitude
+    """
+    pass

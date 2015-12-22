@@ -469,8 +469,9 @@ class WFS(object):
             #If points are float, must interpolate. -1 as linspace goes to number
             xCoords = numpy.linspace(x1, x2-1, simSize)
             yCoords = numpy.linspace(y1, y2-1, simSize)
-            interpObj = interp2d(
-                    self.scrnCoords, self.scrnCoords, scrn, copy=False)
+            scrnCoords = numpy.arange(scrn.shape[0])
+
+            interpObj = interp2d(scrnCoords, scrnCoords, scrn, copy=False)
             metaPupil = interpObj(xCoords, yCoords)
 
         return metaPupil
@@ -558,44 +559,26 @@ class WFS(object):
                     self.EField, self.wfsConfig.wavelength,
                     delta, delta, ht
                     )
-
-        # Multiply EField by aperture
-        # self.EField[:] *= self.mask
-        # self.EField[:] = self.physEField[
-        #                    self.simConfig.pupilSize/2.:
-        #                    3*self.simConfig.pupilSize/2.,
-        #                    self.simConfig.pupilSize/2.:
-        #                    3*self.simConfig.pupilSize/2.] * self.mask
-
 ######################################################
 
 
-    def iMatFrame(self, phs):
-        '''
-        Runs an iMat frame - essentially gives slopes for given "phs" so
-        useful for other stuff too!
+    def applyCorrection(self, correction):
+        # Put correction in list if not already
+        t = type(correction)
+        if t!=dict and t!=list:
+            correction = [correction]
 
-        Parameters:
-            phs (ndarray):  The phase to apply to the WFS. Should be of shape
-                            (simConfig.simSize, simConfig.simSize)
-        Returns:
-            ndarray: A 1-d array of WFS measurements
-        '''
-        self.iMat=True
-        #Set "removeTT" to false while we take an iMat
-        removeTT = self.wfsConfig.removeTT
-        self.wfsConfig.removeTT=False
+        phs = numpy.zeros(
+                (self.simConfig.simSize, self.simConfig.simSize), dtype=DTYPE)
+        for corr in correction:
+            # try in case just an array has been used (not correcion obj)
+            try:
+                phs += self.getMetaPupilPhase(corr, corr.altitude)
+            # If correction is a plane old numpy array, assume at pupil plane
+            except AttributeError:
+                phs += corr
 
-        self.zeroData()
-        self.EField[:] =  numpy.exp(1j*phs)#*self.r0Scale)
-        self.calcFocalPlane()
-        self.makeDetectorPlane()
-        self.calculateSlopes()
-
-        self.wfsConfig.removeTT = removeTT
-        self.iMat=False
-
-        return self.slopes
+        self.EField *= numpy.exp(-1j*phs*self.phs2Rad)
 
     def zeroPhaseData(self):
         self.EField[:] = 0
@@ -621,7 +604,7 @@ class WFS(object):
             ndarray: WFS Measurements
         '''
 
-       #If iMatFrame, turn off unwanted effects
+       # If iMatFrame, turn off unwanted effects
         if iMatFrame:
             self.iMat = True
             removeTT = self.wfsConfig.removeTT
@@ -635,18 +618,18 @@ class WFS(object):
             self.wfsConfig.eReadNoise = 0
 
 
-        #If scrns is not dict or list, assume array and put in list
+        # If scrns is not dict or list, assume array and put in list
         t = type(scrns)
         if t!=dict and t!=list:
             scrns = [scrns]
 
         self.zeroData(detector=read, inter=False)
         self.scrns = {}
-        #Scale phase to WFS wvl
+        # Scale phase to WFS wvl
         for i in xrange(len(scrns)):
             self.scrns[i] = scrns[i].copy()*self.phs2Rad
-        
-        #If LGS elongation simulated
+
+        # If LGS elongation simulated
         if self.wfsConfig.lgs and self.elong!=0:
             for i in xrange(self.elongLayers):
                 self.zeroPhaseData()
@@ -655,12 +638,12 @@ class WFS(object):
                 self.uncorrectedPhase = self.wfsPhase.copy()/self.phs2Rad
                 self.EField *= numpy.exp(1j*self.elongPhaseAdditions[i])
                 if numpy.any(correction):
-                    self.EField *= numpy.exp(-1j*correction*self.phs2Rad)
+                    self.applyCorrection(correction)
                 self.calcFocalPlane(intensity=self.lgsConfig.naProfile[i])
 
-        #If no elongation
+        # If no elongation
         else:
-            #If imat frame, dont want to make it off-axis
+            # If imat frame, dont want to make it off-axis
             if iMatFrame:
                 try:
                     self.EField[:] = numpy.exp(1j*scrns[0]*self.phs2Rad)
@@ -671,7 +654,7 @@ class WFS(object):
 
             self.uncorrectedPhase = self.wfsPhase.copy()/self.phs2Rad
             if numpy.any(correction):
-                self.EField *= numpy.exp(-1j*correction*self.phs2Rad)
+                self.applyCorrection(correction)
             self.calcFocalPlane()
 
         if read:

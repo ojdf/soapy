@@ -54,9 +54,9 @@ class Reconstructor(object):
         self.dmConds = []
         self.dmTypes = []
         for dm in xrange(self.simConfig.nDM):
-            self.dmActs.append(self.dms[dm].dmConfig.nxActuators)
-            self.dmConds.append(self.dms[dm].dmConfig.svdConditioning)
-            self.dmTypes.append(self.dms[dm].dmConfig.type)
+            self.dmActs.append(self.dms[dm].config.nxActuators)
+            self.dmConds.append(self.dms[dm].config.svdConditioning)
+            self.dmTypes.append(self.dms[dm].config.type)
 
         self.dmConds = numpy.array(self.dmConds)
         self.dmActs = numpy.array(self.dmActs)
@@ -165,7 +165,7 @@ class Reconstructor(object):
             filenameShapes = self.simConfig.simName+"/dmShapes_dm%d.fits" % dm
 
             iMat = fits.open(filenameIMat)[0].data
-            
+
             # See if influence functions are also there...
             try:
                 iMatShapes = fits.open(filenameShapes)[0].data
@@ -174,10 +174,10 @@ class Reconstructor(object):
                     logger.warning(
                             "loaded DM shapes are not same size as current sim."
                             )
-                    raise IOError 
+                    raise IOError
                 self.dms[dm].iMatShapes = iMatShapes
 
-            # If not, assume doesn't need them. 
+            # If not, assume doesn't need them.
             # May raise an error elsewhere though
             except IOError:
                 logger.info("DM Influence functions not found. If the DM doesn't use them, this is ok. If not, set 'forceNew=True' when making IMat")
@@ -263,9 +263,9 @@ class MVM(Reconstructor):
             acts+=self.dms[dm].acts
 
         logger.info("Invert iMat with cond: {}".format(
-                self.dms[dm].dmConfig.svdConditioning))
+                self.dms[dm].config.svdConditioning))
         self.controlMatrix[:] = scipy.linalg.pinv(
-                self.iMat, self.dms[dm].dmConfig.svdConditioning
+                self.iMat, self.dms[dm].config.svdConditioning
                 )
 
 
@@ -287,7 +287,7 @@ class MVM_SeparateDMs(Reconstructor):
             dmIMat = self.dms[dm].iMat
             #Treats each DM iMat seperately
             dmCMat = scipy.linalg.pinv(
-                    dmIMat, self.dms[dm].dmConfig.svdConditioning
+                    dmIMat, self.dms[dm].config.svdConditioning
                     )
             # now put carefully back into one control matrix
             for w, wfs in enumerate(self.dms[dm].wfss):
@@ -308,7 +308,7 @@ class MVM_SeparateDMs(Reconstructor):
         the responsibility of other WFSs depending on the config file.
         """
 
-        if self.dms[0].dmConfig.type=="TT":
+        if self.dms[0].config.type=="TT":
             ttMean = slopes[self.dms[0].wfs.wfsConfig.dataStart:
                             (self.dms[0].wfs.activeSubaps*2
                                 +self.dms[0].wfs.wfsConfig.dataStart)
@@ -475,7 +475,7 @@ class LearnAndApply(MVM):
         #Retreive pseudo on-axis slopes from tomo reconstructor
         slopes = self.tomoRecon.dot(slopes[2*self.wfss[0].activeSubaps:])
 
-        if self.dms[0].dmConfig.type=="TT":
+        if self.dms[0].config.type=="TT":
             ttMean = slopes.reshape(2, self.wfss[0].activeSubaps).mean(1)
             ttCommands = self.controlMatrix[:,:2].T.dot(slopes)
             slopes[:self.wfss[0].activeSubaps] -= ttMean[0]
@@ -577,7 +577,7 @@ class LearnAndApplyLTAO(LearnAndApply, MVM_SeparateDMs):
         # hoCommands = self.controlMatrix[
         #         self.wfss[1].wfsConfig.dataStart:,2:].T.dot(slopes_HO)
         #
-        # #if self.dms[0].dmConfig.type=="TT":
+        # #if self.dms[0].config.type=="TT":
         #    ttMean = slopes.reshape(2, self.wfss[0].activeSubaps).mean(1)
         #    ttCommands = self.controlMatrix[:,:2].T.dot(slopes)
         #    slopes[:self.wfss[0].activeSubaps] -= ttMean[0]
@@ -688,12 +688,12 @@ class WooferTweeter(Reconstructor):
         for dm in xrange(self.simConfig.nDM):
             dmIMat = self.dms[dm].iMat
 
-            logger.info("Invert DM {} IMat with conditioning:{}".format(dm,self.dms[dm].dmConfig.svdConditioning))
+            logger.info("Invert DM {} IMat with conditioning:{}".format(dm,self.dms[dm].config.svdConditioning))
             if dmIMat.shape[0]==dmIMat.shape[1]:
                 dmCMat = numpy.linalg.pinv(dmIMat)
             else:
                 dmCMat = numpy.linalg.pinv(
-                                    dmIMat, self.dms[dm].dmConfig.svdConditioning)
+                                    dmIMat, self.dms[dm].config.svdConditioning)
 
             #if dm != self.simConfig.nDM-1:
             #    self.controlMatrix[:,acts:acts+self.dms[dm].acts] = dmCMat

@@ -20,6 +20,9 @@ import numpy
 from . import aoSimLib, AOFFT, logger
 from scipy.interpolate import interp2d
 
+# The data type of data arrays (complex and real respectively)
+CDTYPE = numpy.complex64
+DTYPE = numpy.float32
 
 class scienceCam(object):
 
@@ -70,7 +73,7 @@ class scienceCam(object):
         # Get phase scaling factor to get r0 in other wavelength
         # phsWvl = 500e-9
         # self.r0Scale = phsWvl / self.sciConfig.wavelength
-        # Convert phase to radians at science wavelength 
+        # Convert phase to radians at science wavelength
         self.phs2Rad = 2*numpy.pi/(self.sciConfig.wavelength*10**9)
 
         # Calculate ideal PSF for purposes of strehl calculation
@@ -177,9 +180,28 @@ class scienceCam(object):
 
         self.phase = totalPhase
 
+    def applyCorrection(self, correction):
+        # Put correction in list if not already
+        t = type(correction)
+        if t!=dict and t!=list:
+            correction = [correction]
+
+        phs = numpy.zeros(
+                (self.simConfig.simSize, self.simConfig.simSize), dtype=DTYPE)
+        for corr in correction:
+            # try in case just an array has been used (not correcion obj)
+            try:
+                phs += self.getMetaPupilPhase(corr, corr.altitude)
+            # If correction is a plane old numpy array, assume at pupil plane
+            except AttributeError:
+                phs += corr
+
+        self.residual = self.phase - phs
+        # self.EField *= numpy.exp(-1j*phs*self.phs2Rad)
+
     def calcFocalPlane(self):
         '''
-        Takes the calculated pupil phase, scales for the correct FOV, 
+        Takes the calculated pupil phase, scales for the correct FOV,
         and uses an FFT to transform to the focal plane.
         '''
 
@@ -197,7 +219,7 @@ class scienceCam(object):
 
         self.FFT.inputData[:self.FOVPxlNo, :self.FOVPxlNo] = eField
         focalPlane_efield = AOFFT.ftShift2d(self.FFT())
-        
+
         self.focalPlane_efield = aoSimLib.binImgs(
             focalPlane_efield, self.sciConfig.fftOversamp)
 
@@ -206,7 +228,7 @@ class scienceCam(object):
         # Normalise the psf
         self.focalPlane /= self.focalPlane.sum()
 
-    def frame(self, scrns, phaseCorrection=None):
+    def frame(self, scrns, correction=None):
         """
         Runs a single science camera frame with one or more phase screens
 
@@ -225,8 +247,8 @@ class scienceCam(object):
         self.scrns = scrns
         self.calcPupilPhase()
 
-        if numpy.any(phaseCorrection):
-            self.residual = self.phase - (phaseCorrection)
+        if numpy.any(correction):
+            self.applyCorrection(correction)
         else:
             self.residual = self.phase
 
@@ -234,7 +256,7 @@ class scienceCam(object):
 
         # Here so when viewing data, that outside of the pupil isn't visible.
         # self.residual*=self.mask
-        
+
         self.instStrehl = self.focalPlane.max()/self.focalPlane.sum()/ self.psfMax
 
         return self.focalPlane
