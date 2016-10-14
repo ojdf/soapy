@@ -2,8 +2,10 @@
 (formerly PyAOS)
 
 [![Build Status](https://travis-ci.org/soapy/soapy.svg?branch=master)](https://travis-ci.org/soapy/soapy)
-[![Build status](https://ci.appveyor.com/api/projects/status/o4vl97d67iyb0d62/branch/master?svg=true)](https://ci.appveyor.com/project/andrewpaulreeves/soapy/branch/master)
-[![codecov.io](https://codecov.io/github/andrewpaulreeves/soapy/coverage.svg?branch=master)](https://codecov.io/github/andrewpaulreeves/soapy?branch=master)
+[![Build status](https://ci.appveyor.com/api/projects/status/ea65yv0p7s32ejxx/branch/master?svg=true)](https://ci.appveyor.com/project/Soapy/soapy/branch/master)
+[![codecov.io](https://codecov.io/github/soapy/soapy/coverage.svg?branch=master)](https://codecov.io/github/soapy/soapy?branch=master)
+[![Documentation Status](http://readthedocs.org/projects/soapy/badge/?version=latest)](http://soapy.readthedocs.io/en/latest/?badge=latest)
+
 
 ## Introduction
 
@@ -12,7 +14,7 @@ Soapy is a Monte-Carlo Adaptive Optics Simulation toolkit written in Python. soa
 
 Please keep in mind that soapy is very much a work-in-progress and under heavy development. I've not yet settled on a completely stable API, but I will try and say when something big has changed. **For these reasons I would strongly reccomend against using soapy for critical work and would suggest contacting me to discuss its suitability for any work to be published.**
 
-There is documentation at http://pyaos.readthedocs.org/en/latest/index.html, again this is also being developed at this time!
+There is documentation at http://soapy.readthedocs.io/en/latest/, again this is also being developed at this time!
 
 ## Quick-Start
 
@@ -46,7 +48,6 @@ Soapy doesn't have too many requirements in terms of external libraries, though 
     pyqtgraph (http://www.pyqtgraph.org)
     matplotlib
     ipython
-    
 
 If your starting with python from scratch, there a couple of options. For Ubuntu linux (14.04+) users, all these packages can be installed via apt-get:
     

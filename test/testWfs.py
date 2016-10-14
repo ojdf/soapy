@@ -1,4 +1,5 @@
-from soapy import confParse, WFS, aoSimLib
+from soapy import confParse, WFS
+from soapy.aotools import circle
 import unittest
 import numpy
 import os
@@ -11,17 +12,17 @@ class TestWfs(unittest.TestCase):
         config = confParse.Configurator(os.path.join(CONFIG_PATH, "sh_8x8.py"))
         config.loadSimParams()
 
-        mask = aoSimLib.circle(config.sim.pupilSize/2., config.sim.simSize)
+        mask = circle.circle(config.sim.pupilSize/2., config.sim.simSize)
 
-        wfs = WFS.WFS(config.sim, config.wfss[0], config.atmos, config.lgss[0], mask)
+        wfs = WFS.WFS(config, mask=mask)
 
 
     def testb_wfsFrame(self):
         config = confParse.Configurator(os.path.join(CONFIG_PATH, "sh_8x8.py"))
         config.loadSimParams()
-        mask = aoSimLib.circle(config.sim.pupilSize/2., config.sim.simSize)
+        mask = circle.circle(config.sim.pupilSize/2., config.sim.simSize)
 
-        wfs = WFS.WFS(config.sim, config.wfss[0], config.atmos, config.lgss[0], mask)
+        wfs = WFS.WFS(config, mask=mask)
 
         wfs.frame(numpy.zeros((config.sim.simSize, config.sim.simSize)))
 
@@ -31,35 +32,65 @@ class TestWfs(unittest.TestCase):
         config = confParse.Configurator(os.path.join(CONFIG_PATH, "sh_8x8.py"))
         config.loadSimParams()
 
-        mask = aoSimLib.circle(config.sim.pupilSize/2., config.sim.simSize)
+        mask = circle.circle(config.sim.pupilSize/2., config.sim.simSize)
 
-        wfs = WFS.ShackHartmann(config.sim, config.wfss[0], config.atmos, config.lgss[0], mask)
+        wfs = WFS.ShackHartmann(config, mask=mask)
 
     def testd_SHWfsFrame(self):
         config = confParse.Configurator(os.path.join(CONFIG_PATH, "sh_8x8.py"))
         config.loadSimParams()
-        mask = aoSimLib.circle(config.sim.pupilSize/2., config.sim.simSize)
+        mask = circle.circle(config.sim.pupilSize/2., config.sim.simSize)
 
-        wfs = WFS.ShackHartmann(config.sim, config.wfss[0], config.atmos, config.lgss[0], mask)
+        wfs = WFS.ShackHartmann(config, mask=mask)
 
         wfs.frame(numpy.zeros((config.sim.simSize, config.sim.simSize)))
 
-    def teste_initPyrWfs(self):
+    def test_PhysWfs(self):
+
+        config = confParse.Configurator(os.path.join(CONFIG_PATH, "sh_8x8.py"))
+        config.loadSimParams()
+        config.wfss[0].propagationMode = "Physical"
+
+        mask = circle.circle(config.sim.pupilSize/2., config.sim.simSize)
+
+        wfs = WFS.WFS(config, mask=mask)
+
+        wfs.frame([numpy.zeros((config.sim.scrnSize,)*2)]*config.atmos.scrnNo)
+
+    def testc_initGradWfs(self):
+
         config = confParse.Configurator(os.path.join(CONFIG_PATH, "sh_8x8.py"))
         config.loadSimParams()
 
-        mask = aoSimLib.circle(config.sim.pupilSize/2., config.sim.simSize)
+        mask = circle.circle(config.sim.pupilSize/2., config.sim.simSize)
 
-        wfs = WFS.Pyramid(config.sim, config.wfss[0], config.atmos, config.lgss[0], mask)
+        wfs = WFS.Gradient(config, mask=mask)
 
-    def testf_PyrWfsFrame(self):
+    def testd_GradWfsFrame(self):
         config = confParse.Configurator(os.path.join(CONFIG_PATH, "sh_8x8.py"))
         config.loadSimParams()
-        mask = aoSimLib.circle(config.sim.pupilSize/2., config.sim.simSize)
+        mask = circle.circle(config.sim.pupilSize/2., config.sim.simSize)
 
-        wfs = WFS.Pyramid(config.sim, config.wfss[0], config.atmos, config.lgss[0], mask)
+        wfs = WFS.Gradient(config, mask=mask)
 
         wfs.frame(numpy.zeros((config.sim.simSize, config.sim.simSize)))
+
+    # def teste_initPyrWfs(self):
+    #     config = confParse.Configurator(os.path.join(CONFIG_PATH, "sh_8x8.py"))
+    #     config.loadSimParams()
+    #
+    #     mask = circle.circle(config.sim.pupilSize/2., config.sim.simSize)
+    #
+    #     wfs = WFS.Pyramid(config, config.lgss[0], mask)
+    #
+    # def testf_PyrWfsFrame(self):
+    #     config = confParse.Configurator(os.path.join(CONFIG_PATH, "sh_8x8.py"))
+    #     config.loadSimParams()
+    #     mask = circle.circle(config.sim.pupilSize/2., config.sim.simSize)
+    #
+    #     wfs = WFS.Pyramid(config, config.lgss[0], mask)
+    #
+    #     wfs.frame(numpy.zeros((config.sim.simSize, config.sim.simSize)))
 
 
 if __name__=="__main__":

@@ -54,7 +54,7 @@ def brightestPxl(img, threshold, **kwargs):
         ndarray: Array of centroid values
     """
 
-    nPxls = threshold*img.shape[-1]*img.shape[-2]
+    nPxls = int(round(threshold*img.shape[-1]*img.shape[-2]))
 
     if len(img.shape)==2:
         pxlValue = numpy.sort(img.flatten())[-nPxls]
@@ -105,7 +105,6 @@ def correlation(im, threshold, ref):
     Returns:
         ndarray: centroids of im, given as x, y
     '''
-
     nt, ny, nx = im.shape
 
     # Remove min from each sub-ap to increase contrast

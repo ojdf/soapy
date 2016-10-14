@@ -12,9 +12,9 @@ except ImportError:
     except ImportError:
         raise ImportError("PyAOS requires either pyfits or astropy")
 
-from .. import AOFFT, aoSimLib, logger
+from .. import AOFFT, logger
 from . import shackhartmann
-from ..tools import centroiders
+from ..aotools import centroiders
 
 # xrange now just "range" in python3.
 # Following code means fastest implementation used in 2 and 3
@@ -66,10 +66,13 @@ class ExtendedSH(shackhartmann.ShackHartmann):
         super(ExtendedSH, self).allocDataArrays()
 
         # Make a convolution object to apply the object
-        self.objectConv = AOFFT.Convolve(
-                self.FPSubapArrays.shape, self.extendedObject.shape,
-                threads=self.wfsConfig.fftwThreads, axes=(-2,-1)
-                )
+        if self.extendedObject is None:
+            self.objectConv = None
+        else:
+            self.objectConv = AOFFT.Convolve(
+                    self.FPSubapArrays.shape, self.extendedObject.shape,
+                    threads=self.wfsConfig.fftwThreads, axes=(-2, -1)
+                    )
 
     def makeDetectorPlane(self):
         """
@@ -78,8 +81,8 @@ class ExtendedSH(shackhartmann.ShackHartmann):
         """
         if self.extendedObject is not None:
             # Perform correlation to get subap images
-            self.FPSubapArrays = self.objectConv(
-                    self.FPSubapArrays, self.extendedObject)
+            self.FPSubapArrays[:] = self.objectConv(
+                    self.FPSubapArrays, self.extendedObject).real
 
         # If sub-ap is oversized, apply field mask (TODO:make more general)
         if self.SUBAP_OVERSIZE!=1:
@@ -107,8 +110,8 @@ class ExtendedSH(shackhartmann.ShackHartmann):
 
         # Multiply by inverse of reference image FFT (made when set in property)
         # Do FFT to get correlation
-        self.corrSubapArrays = AOFFT.ftShift2d(self.corrIFFT(
-                iCentSubapArrays*self.iReferenceImage).real)
+        self.corrSubapArrays = self.corrIFFT(
+                iCentSubapArrays*self.iReferenceImage).real
 
     def calculateSlopes(self):
         '''
@@ -125,14 +128,17 @@ class ExtendedSH(shackhartmann.ShackHartmann):
             y = int(y)
             self.centSubapArrays[i] = self.wfsDetectorPlane[x:x+self.wfsConfig.pxlsPerSubap,
                                                     y:y+self.wfsConfig.pxlsPerSubap ].astype(DTYPE)
-
-        self.makeCorrelationImgs()
+        # If a reference image is supplied, use it for correlation centroiding
+        if self.referenceImage is not None:
+            self.makeCorrelationImgs()
+        # Else: Just centroid on the extended image
+        else:
+            self.corrSubapArrays = self.FPSubapArrays
 
         slopes = eval("centroiders."+self.wfsConfig.centMethod)(
                 self.corrSubapArrays,
                 threshold=self.wfsConfig.centThreshold,
                 )
-
 
         # shift slopes relative to subap centre and remove static offsets
         slopes -= self.wfsConfig.pxlsPerSubap/2.0
@@ -156,7 +162,6 @@ class ExtendedSH(shackhartmann.ShackHartmann):
 
         return self.slopes
 
-
     @property
     def referenceImage(self):
         """
@@ -166,7 +171,6 @@ class ExtendedSH(shackhartmann.ShackHartmann):
 
     @referenceImage.setter
     def referenceImage(self, referenceImage):
-
         if referenceImage is not None:
             # If given value is a string, assume a filename of fits file
             if isinstance(referenceImage, str):
@@ -181,7 +185,6 @@ class ExtendedSH(shackhartmann.ShackHartmann):
             # if its an array of sub-aps, no work needed
             if referenceImage.shape == refShape:
                 self._referenceImage = referenceImage
-
 
             # If its the size of a sub-ap, set all subaps to that value
             elif referenceImage.shape == (self.wfsConfig.pxlsPerSubap,)*2:
@@ -202,7 +205,6 @@ class ExtendedSH(shackhartmann.ShackHartmann):
             # Do the FFT of the reference image for the correlation
             self.iReferenceImage = numpy.fft.ifft2(
                     self._referenceImage, axes=(1,2))
-
         else:
             self._referenceImage = None
 
