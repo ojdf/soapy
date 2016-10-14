@@ -105,12 +105,14 @@ class atmos(object):
         self.config.scrnStrengths = numpy.array(self.config.scrnStrengths,
                 dtype="float32")
 
-        atmosConfig.normScrnStrengths = atmosConfig.scrnStrengths/(
-                            atmosConfig.scrnStrengths[:self.scrnNo].sum())
+        self.config.normScrnStrengths = self.config.scrnStrengths/(
+                            self.config.scrnStrengths[:self.scrnNo].sum())
+        self.config.scrnHeights = self.config.scrnHeights[
+                    :self.config.scrnNo]
         
         # If any screen strength is 0, convert r0 to really big number
         self.scrnStrengths = numpy.nan_to_num( ((self.r0**(-5./3.))
-                                *atmosConfig.normScrnStrengths)**(-3./5.) )
+                                *self.config.normScrnStrengths)**(-3./5.) )
             
         # #Assume r0 calculated for 550nm.
         # self.wvl = 550e-9
