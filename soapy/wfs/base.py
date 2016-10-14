@@ -365,8 +365,9 @@ class WFS(object):
             # Find the phase from that elongation layer (with different cone effect radii and potentially angular position)
             self.los.makePhase(self.elongRadii[i], apos=self.elongPos[i])
 
-            # Make a copy of the uncorrectedPhase for plotting
+            # Make a copy of the uncorrectedPhase and EField for plotting
             self.uncorrectedPhase = self.los.phase.copy()/self.los.phs2Rad
+            self.uncorrectedEField = self.los.EField.copy()
 
             # Add the effect of the defocus and possibly tilt
             self.los.EField *= numpy.exp(1j*self.elongPhaseAdditions[i])
@@ -429,6 +430,7 @@ class WFS(object):
             self.los.makePhase(self.radii)
 
             self.uncorrectedPhase = self.los.phase.copy()/self.los.phs2Rad
+            self.uncorrectedEField = self.los.EField.copy()
             if correction is not None:
                 self.los.performCorrection(correction)
                 
