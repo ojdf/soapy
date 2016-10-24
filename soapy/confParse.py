@@ -227,6 +227,12 @@ class PY_Configurator(object):
             for scrn in range(self.atmos.scrnNo):
                 self.atmos.L0.append(10e9)
 
+        # If inner scale is None, set to 1 cm
+        if self.atmos.l0 is None:
+            self.atmos.l0 = []
+            for scrn in range(self.atmos.scrnNo):
+                self.atmos.l0.append(0.01)
+
         # Check if SH WFS with 1 subap. Feild stop must be FOV
         for wfs in self.wfss:
             if wfs.nxSubaps==1 and wfs.subapFieldStop==False:
@@ -586,6 +592,8 @@ class AtmosConfig(ConfigObj):
                             iteration?                          ``False``
         ``tau0``            float: Turbulence coherence time,
                             if set wind speeds are scaled.      ``None``
+        ``l0``              list, float: Innter scale of each   ``0.01``
+                            layer.      
         ==================  =================================   ===========
     """
 
@@ -622,6 +630,8 @@ class AtmosConfig(ConfigObj):
         self.windSpeeds = numpy.array(self.windSpeeds)
         if self.L0 is not None:
             self.L0 = numpy.array(self.L0)
+        if self.l0 is not None:
+            self.l0 = numpy.array(self.l0)
 
 
 class WfsConfig(ConfigObj):
