@@ -592,8 +592,9 @@ class AtmosConfig(ConfigObj):
                             iteration?                          ``False``
         ``tau0``            float: Turbulence coherence time,
                             if set wind speeds are scaled.      ``None``
-        ``l0``              list, float: Innter scale of each   ``0.01``
-                            layer.      
+        ``l0``              list, float: Innter scale of each   ``None``
+                            layer. Kolmogorov turbulence if
+                            ``None``.
         ==================  =================================   ===========
     """
 
@@ -611,6 +612,7 @@ class AtmosConfig(ConfigObj):
                         ("L0", None),
                         ("randomScrns", False),
                         ("tau0", None),
+                        ("l0", None)
                         ]
 
     # Parameters which may be set at some point and are allowed
