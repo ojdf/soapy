@@ -372,15 +372,16 @@ class WFS(object):
             self.los.EField *= numpy.exp(1j*self.elongPhaseAdditions[i])
             self.los.phase += self.elongPhaseAdditions[i]
 
-            # Keep copy of EField
-            self.uncorrectedEField = self.los.EField.copy()
-            
             # Apply any correction
             if correction is not None:
                 self.los.performCorrection(correction)
 
             # Add onto the focal plane with that layers intensity
             self.calcFocalPlane(intensity=self.lgsConfig.naProfile[i])
+
+        # Keep copy of EField
+        self.uncorrectedEField = self.los.EField.copy()
+            
 
            
 
