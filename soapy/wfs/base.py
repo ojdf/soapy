@@ -89,7 +89,7 @@ except ImportError:
         raise ImportError("PyAOS requires either pyfits or astropy")
 
 from .. import AOFFT, LGS, logger, lineofsight
-from ..aotools import centroiders, circle
+from ..aotools import centroiders, circle, interp
 
 # xrange now just "range" in python3.
 # Following code means fastest implementation used in 2 and 3
