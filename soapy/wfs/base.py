@@ -444,6 +444,7 @@ class WFS(object):
             self.uncorrectedEField = self.los.EField.copy()
             if correction is not None:
                 self.los.performCorrection(correction)
+            self.correctedEField = self.los.EField.copy()
                 
             self.calcFocalPlane()
 

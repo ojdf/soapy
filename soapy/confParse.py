@@ -480,6 +480,8 @@ class SimConfig(ConfigObj):
                             effects                             ``1.2``
         ``loopDelay``       int: loop delay in integer count
                             of ``loopTime``                     ``0``
+        ``physProp``        bool: use physical propagation      ``False``
+                            between DMs
 
 
         ==================  =================================   ===============
@@ -536,6 +538,7 @@ class SimConfig(ConfigObj):
                             ("learnAtmos", "random"),
                             ("simOversize", 1.2),
                             ("loopDelay", 0),
+                            ("physProp", False)
                         ]
 
     # Parameters which may be set at some point and are allowed

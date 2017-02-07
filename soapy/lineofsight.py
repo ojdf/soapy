@@ -464,18 +464,23 @@ class LineOfSight(object):
         if isinstance(correction, numpy.ndarray):
             correction = [correction]
         
-        for corr in correction:
+        alts = numpy.array([corr.altitude for corr in correction if hasattr(corr, "altitude")])
+        dzs = numpy.ediff1d(alts, to_end=[0])
+
+        for i, corr in enumerate(correction):
             # If correction is a standard ndarray, assume at ground
             if hasattr(corr, "altitude"):
                 altitude = corr.altitude
+                dz = dzs[i]
             else:
                 altitude = 0
-                   
+                dz = 0
+            
             # Cut out the bit of the correction we need
             metaPupilRadius = self.calcMetaPupilSize(
                         altitude, self.height) * self.simConfig.pxlScale
             corr = self.getMetaPupilPhase(corr, altitude, radius=metaPupilRadius)
-            
+
             # Correct EField
             self.EField *= numpy.exp(-1j * corr * self.phs2Rad)
             
@@ -485,6 +490,12 @@ class LineOfSight(object):
             self.residual = self.phase/self.phs2Rad - corr
            
             self.phase = self.residual * self.phs2Rad
+
+            # If using physical propagation between DMs, do that
+            if self.simConfig.physProp and dz != 0:
+                logger.debug("Propagating {0} m from DM {1}".format(dz, i))
+                self.EField[:] = opticalpropagation.angularSpectrum(self.EField,
+                    self.config.wavelength, self.outPxlScale, self.outPxlScale, -dz)
 
     def frame(self, scrns=None, correction=None):
         '''
