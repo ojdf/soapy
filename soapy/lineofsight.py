@@ -28,7 +28,9 @@ import numpy
 from scipy.interpolate import interp2d
 
 from . import logger
-from .aotools import opticalpropagation, interp
+# use standalone aotools not soapy aotools
+from aotools.turbulence import opticalpropagation
+from .aotools import interp
 
 DTYPE = numpy.float32
 CDTYPE = numpy.complex64
@@ -450,7 +452,7 @@ class LineOfSight(object):
             logger.debug("Propagation: {}, {} m. Total: {}".format(i, z, z_total))
 
             self.EField[:] = self.EFieldBuf
-
+    
         return self.EField
 
     def performCorrection(self, correction):
@@ -464,22 +466,31 @@ class LineOfSight(object):
         if isinstance(correction, numpy.ndarray):
             correction = [correction]
         
-        alts = numpy.array([corr.altitude for corr in correction if hasattr(corr, "altitude")])
-        dzs = numpy.ediff1d(alts, to_end=[0])
+        # If correction is a standard ndarray, assume at ground
+        alts = [c.altitude if hasattr(c, 'altitude') else 0. for c in correction]
+        current_alt = 0.
+
+        # Mask EField before any potential propagation, but not if it's a science cam
+        if self.simConfig.physProp and self.config.type != 'PSF':
+            self.EField *= self.outMask
 
         for i, corr in enumerate(correction):
-            # If correction is a standard ndarray, assume at ground
-            if hasattr(corr, "altitude"):
-                altitude = corr.altitude
-                dz = dzs[i]
-            else:
-                altitude = 0
-                dz = 0
+            altitude = alts[i]
             
             # Cut out the bit of the correction we need
             metaPupilRadius = self.calcMetaPupilSize(
                         altitude, self.height) * self.simConfig.pxlScale
             corr = self.getMetaPupilPhase(corr, altitude, radius=metaPupilRadius)
+
+            # Propagate to altitude of DM if using physical propagation
+            dz = current_alt - altitude
+            if self.simConfig.physProp and dz != 0:
+                logger.debug('Propagating {0}m to DM {1}'.format(dz, i))
+                self.EField[:] = opticalpropagation.angularSpectrum(self.EField,
+                    self.config.wavelength, self.outPxlScale, self.outPxlScale, dz)
+
+            # Update current altitude
+            current_alt = altitude
 
             # Correct EField
             self.EField *= numpy.exp(-1j * corr * self.phs2Rad)
@@ -491,11 +502,12 @@ class LineOfSight(object):
            
             self.phase = self.residual * self.phs2Rad
 
-            # If using physical propagation between DMs, do that
-            if self.simConfig.physProp and dz != 0:
-                logger.debug("Propagating {0} m from DM {1}".format(dz, i))
-                self.EField[:] = opticalpropagation.angularSpectrum(self.EField,
-                    self.config.wavelength, self.outPxlScale, self.outPxlScale, -dz)
+        # Finally, if not currently conjugated to ground, propagate to ground
+        if current_alt != 0.:
+            self.EField[:] = opticalpropagation.angularSpectrum(self.EField, 
+                self.config.wavelength, self.outPxlScale, self.outPxlScale, current_alt)
+            self.residual = self.phase/self.phs2Rad
+            self.phase = self.residual * self.phs2Rad
 
     def frame(self, scrns=None, correction=None):
         '''

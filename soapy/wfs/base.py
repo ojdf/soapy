@@ -193,7 +193,7 @@ class WFS(object):
         Initialises the ``LineOfSight`` object, which gets the phase or EField in a given direction through turbulence.
         """
         self.los = lineofsight.LineOfSight(
-                self.config, self.soapyConfig,
+                self.config, self.soapyConfig, mask=self.mask,
                 propagationDirection="down")
 
     def initLGS(self):
