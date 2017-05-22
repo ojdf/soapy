@@ -29,7 +29,7 @@ from scipy.interpolate import interp2d
 
 from . import logger
 # use standalone aotools not soapy aotools
-from aotools.turbulence import opticalpropagation
+from aotools import opticalpropagation
 from .aotools import interp
 
 DTYPE = numpy.float32
