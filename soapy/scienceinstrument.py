@@ -332,7 +332,7 @@ class singleModeFibre(PSFCamera):
     def __init__(self, soapyConfig, nSci=0, mask=None):
         scienceCam.__init__(self, soapyConfig, nSci, mask)
 
-        self.normMask = self.mask / numpy.sqrt(numpy.sum(numpy.abs(self.mask)**2))
+        self.normMask = self.scaledMask / numpy.sqrt(numpy.sum(numpy.abs(self.scaledMask)**2))
         self.fibreSize = opt.minimize_scalar(self.refCouplingLoss, bracket=[1.0, self.sim_size]).x
         self.refStrehl = 1.0 - self.refCouplingLoss(self.fibreSize)
         self.fibre_efield = self.fibreEfield(self.fibreSize)
@@ -340,8 +340,8 @@ class singleModeFibre(PSFCamera):
 
 
     def fibreEfield(self, size):
-        fibre_efield = aotools.gaussian2d((self.sim_size, self.sim_size), (size, size))
-        fibre_efield /= numpy.sqrt(numpy.sum(numpy.abs(aotools.gaussian2d((self.sim_size*3, self.sim_size*3), (size, size)))**2))
+        fibre_efield = aotools.gaussian2d(self.normMask.shape, (size, size))
+        fibre_efield /= numpy.sqrt(numpy.sum(numpy.abs(aotools.gaussian2d(3 * numpy.array(self.normMask.shape), (size, size)))**2))
         return fibre_efield
 
 
@@ -350,7 +350,7 @@ class singleModeFibre(PSFCamera):
 
 
     def calcInstStrehl(self):
-        self.instStrehl = numpy.abs(numpy.sum(self.fibre_efield * self.los.EField * self.normMask))**2
+        self.instStrehl = numpy.abs(numpy.sum(self.fibre_efield * self.EField_fov * self.normMask))**2
 
 
 # Compatability with older versions
