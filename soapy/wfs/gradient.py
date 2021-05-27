@@ -83,6 +83,7 @@ class Gradient(wfs.WFS):
                 self.wfsConfig.subapThreshold, returnFill=True)
 
         self.activeSubaps = int(self.subapCoords.shape[0])
+        self.n_measurements = 2 * self.activeSubaps
 
     def allocDataArrays(self):
         """
