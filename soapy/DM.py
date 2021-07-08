@@ -443,6 +443,17 @@ class GaussStack(Piezo):
                 self.iMatShapes, ((0,0), (pad,pad), (pad,pad)), mode="constant"
                 )
 
+class Perfect(DM):
+
+    def getActiveActs(self):
+        self.n_active_actuators = self.mask.shape[0] * self.mask.shape[1]
+        self.n_valid_actuators = self.n_active_actuators
+        return self.n_active_actuators
+
+    def dmFrame(self, dmCommands):
+        self.dmShape = dmCommands.reshape(self.mask.shape[0], self.mask.shape[1])
+        return self.dmShape
+
 class TT(DM):
     """
     A class representing a tip-tilt mirror.

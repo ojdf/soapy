@@ -982,6 +982,17 @@ class LgsTT(LearnAndApply):
 
         return slopes
 
+class Perfect(Reconstructor):
+
+    def calcCMat(self, callback=None, progressCallback=None):
+        self.control_matrix = 1
+
+    def makeIMat(self, callback=None):
+        self.interaction_matrix = 1
+
+    def reconstruct(self, slopes):
+        return self.control_matrix * slopes
+
 class ANN(Reconstructor):
     """
     Reconstructs using a neural net
