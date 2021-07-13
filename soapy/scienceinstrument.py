@@ -401,6 +401,7 @@ class singleModeFibreNoInterp(PSFCamera):
 
         # for compatibility with simulation.py
         self.psfMax = self.refStrehl
+        self.fov = 0.
 
     def fibreEfield(self, size):
         fibre_efield = aotools.gaussian2d(self.normMask.shape, (size, size))
