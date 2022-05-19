@@ -34,6 +34,10 @@ class Perfect(wfs.WFS):
     def calculateSlopes(self):
 
         self.slopes = (self.los.phase * self.mask).flatten() / self.los.phs2Rad
+
+        if self.config.eReadNoise > 0:
+            self.slopes += numpy.random.normal(0, self.config.eReadNoise, size=self.slopes.shape)
+
         return self.slopes
 
     def calcFocalPlane(self):
