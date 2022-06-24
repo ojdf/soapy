@@ -37,8 +37,9 @@ Author : Aurelie Magniez
 import numpy
 import numpy.random
 from aotools.functions import circle
+from aotools.astronomy import photons_per_mag
 
-from .. import AOFFT, LGS, logger
+from .. import AOFFT, LGS, logger, lineofsight
 from . import wfs
 import pyfftw
 
@@ -113,16 +114,34 @@ class Pyramid(wfs.WFS):
         self.nb_modulation =  self.wfsConfig.nb_modulation
         self.amplitude_modulation =  self.wfsConfig.amplitude_modulation / 206265
         
-        # ---  Sampling parameters
-        self.size_array = self.sim_size
-        
          # ---- Detector parameters ----
         self.nx_subaps = self.wfsConfig.nxSubaps
-        self.bin = int(self.pupil_size / self.nx_subaps)
+        if (self.pupil_size % self.nx_subaps != 0):
+            raise Exception(
+                f"Pyramid init: sim pupil size ({self.pupil_size}) is not a multiple of nxsubaps ({self.nx_subaps})")
+        self.bin = self.pupil_size // self.nx_subaps
 
-        self.detector_size = int(self.size_array / self.bin)
-        # self.detector_size = self.wfsConfig.detector_size
-        self.detector = self.wfsConfig.detector
+        # make detector 2*pupil size + 2*pupil sep, gives some margin round the edges
+        self.detector_size = 2 * self.nx_subaps +2 * self.pupil_separation
+        self.detector_type = self.wfsConfig.detector
+        self.detector = numpy.zeros((self.detector_size, self.detector_size), dtype=DTYPE)
+
+        # compatibility
+        self.wfsDetectorPlane = self.detector 
+        
+        # ---  Sampling parameters
+        self.size_array = self.detector_size * self.bin
+
+        # cut/pad WFS mask to fit new size
+        d = self.mask.shape[-1] - self.size_array
+        if (d > 0):
+            self.mask = self.mask[d//2:-d//2,d//2:-d//2]
+        elif (d < 0):
+            self.mask = numpy.pad(self.mask, abs(d)//2)
+
+        # reinit los with new size
+        self.los.calcInitParams(None, self.size_array)
+        self.los.allocDataArrays()
         
         self.count=0
         
@@ -137,10 +156,8 @@ class Pyramid(wfs.WFS):
         self.calcDetectorMask()
         self.calcTipTiltModulationsPoints()
         self.calcModulationMatrix()
-        self.calcFlatSlopes()
         
         self.n_measurements = self.SlopeSize
-        self.los.allocDataArrays()
 
     def initFFTs(self):
         
@@ -167,6 +184,14 @@ class Pyramid(wfs.WFS):
                 )
         self.focal_plane =  pyfftw.empty_aligned(
                 (max(MOD_MASK,self.nb_modulation),self.size_array,self.size_array), dtype=CDTYPE)
+
+    def initLos(self):
+        """
+        Initialises the ``LineOfSight`` object, which gets the phase or EField in a given direction through turbulence.
+        """
+        self.los = lineofsight.LineOfSight(
+                self.config, self.soapy_config,
+                propagation_direction="down")
 
     def calcCentroidMask(self):
         """
@@ -196,8 +221,6 @@ class Pyramid(wfs.WFS):
         
         
         submask = circle(int(self.nx_subaps/2),self.nx_subaps)
-
-        
         QuadMask1 = numpy.zeros((half_size,half_size))
         
         begin = int(half_size-(self.nx_subaps+self.pupil_separation/2)+0.5)
@@ -299,7 +322,7 @@ class Pyramid(wfs.WFS):
                                        self.tip_mod[i],self.tilt_mod[i])
                 
         
-    def calcFocalPlane(self, num_of_mod=None, intensity=1, maskd = False):
+    def calcFocalPlane(self, num_of_mod=None, intensity=1):
         """
         
 
@@ -314,55 +337,45 @@ class Pyramid(wfs.WFS):
         -------
         None.
 
-        """       
-        
-        
+        """               
         if num_of_mod==None:
             num_of_mod = self.nb_modulation
             
-                
-        if maskd :
-            phase  = self.mask
-        elif self.iMat :
-            phase =  self.los.phase 
-            # plt.figure()
-            # plt.imshow(self.los.phase)
-            # plt.colorbar()
-            # plt.savefig(str(self.count)+'.png')
-            # self.count+=1
-            # plt.close()
-        else:
-            phase = self.los.phase     
+        field = self.los.EField
 
-            
-        #set phase screen
-        phase_screen = (phase  + self.modulation_phase_matrix + self.centroidMask)\
-                                    * intensity * self.mask
-        complex_phase_screen = self.mask * numpy.exp(1j * phase_screen)
+        # include modulation
+        field_mod = field * self.mask * numpy.exp(1j * (self.modulation_phase_matrix + self.centroidMask * intensity))
         
-
-        
-       
         # ---- Fourier filter with a pyramid mask ----
-        self.fft_input_data[:num_of_mod,:,:] = complex_phase_screen
+        self.fft_input_data[:num_of_mod,:,:] = field_mod
         self.FFT()
-        coord = int(self.size_array/4)
-        self.focal_plane= numpy.fft.fftshift(self.fft_output_data)
-        # self.focal_plane[:,coord:-coord,coord:-coord] = numpy.fft.fftshift(self.fft_output_data)[:,coord:-coord,coord:-coord]
+        self.focal_plane[:] = numpy.fft.fftshift(self.fft_output_data)
+
         self.ifft_input_data[:,:,:] = self.focal_plane*self.pyramid_mask_phs_screen
         self.iFFT()
-        self.wfsDetectorPlane  = numpy.sum((numpy.abs(self.ifft_output_data)**2),axis=0)
-        
-        if self.bin != 1:
-            new_shape = int(self.size_array/self.bin)
-            self.wfsDetectorPlane = rebin(self.wfsDetectorPlane, [new_shape,new_shape])
-        if not maskd :
-            self.wfsDetectorPlane /= num_of_mod
+        self.pyramid_pupils = numpy.mean((numpy.abs(self.ifft_output_data)**2),axis=0)
             
-        # ---- Add read noise ----
+    def integrateDetectorPlane(self):
+        if self.bin != 1:
+            new_shape = self.detector_size
+            self.detector[:] = rebin(self.pyramid_pupils, [new_shape,new_shape])
+        else:
+            self.detector[:] = self.pyramid_pupils
+
+
+    def readDetectorPlane(self):
+        # Scale data for correct number of photons
+        self.detector /= self.detector.sum()
+        self.detector *= photons_per_mag(
+                self.config.GSMag, self.mask, self.phase_scale,
+                self.config.exposureTime, self.config.photometric_zp
+                )# * self.config.throughput
+
+        if self.config.photonNoise:
+            self.addPhotonNoise()
+
         if self.config.eReadNoise!=0:
             self.addReadNoise()
-
 
     def calculateSlopes(self,flat = False):
         """
@@ -371,7 +384,7 @@ class Pyramid(wfs.WFS):
         """
         
         #Get each pupil image
-        x = numpy.array(numpy.split(self.wfsDetectorPlane*self.detector_mask,2, axis=0))
+        x = numpy.array(numpy.split(self.detector*self.detector_mask,2, axis=0))
         quad1,quad2=numpy.split(x[0],2, axis=1)
         quad3,quad4=numpy.split(x[1],2, axis=1)
     
@@ -403,31 +416,55 @@ class Pyramid(wfs.WFS):
         self.Xslopes = (quad1 + quad2 - (quad3 + quad4)) / sum_int
         self.Yslopes = (quad1 + quad3 - (quad2 + quad4)) / sum_int
 
-        if flat :
-            self.slopes = numpy.append(self.Yslopes, self.Xslopes)
-        else :
-            self.slopes = numpy.append(self.Yslopes, self.Xslopes) - self.flat_slopes
+        self.slopes = numpy.append(self.Yslopes, self.Xslopes)
+
+        if numpy.any(self.staticData):
+            self.slopes -= self.staticData
+
+        if self.config.removeTT:
+            self.slopes[:len(self.Yslopes)] -= self.Yslopes.mean()
+            self.slopes[len(self.Yslopes):] -= self.Xslopes.mean()
 
         
     def addPhotonNoise(self):
         """
-        Add photon noise to ``wfsDetectorPlane`` using ``numpy.random.poisson``
+        Add photon noise to ``detector`` using ``numpy.random.poisson``
         """
         self.detector[:] = numpy.random.poisson(self.detector).astype(DTYPE)
 
 
     def addReadNoise(self):
         """
-        Adds read noise to ``wfsDetectorPlane using ``numpy.random.normal``.
+        Adds read noise to ``detector`` using ``numpy.random.normal``.
         This generates a normal (guassian) distribution of random numbers to
         add to the detector. Any CCD bias is assumed to have been removed, so
         the distribution is centred around 0. The width of the distribution
         is determined by the value `eReadNoise` set in the WFS configuration.
         """
-        self.wfsDetectorPlane += numpy.random.normal(
-                0, self.config.eReadNoise, self.wfsDetectorPlane.shape)
+        self.detector += numpy.random.normal(
+                0, self.config.eReadNoise, self.detector.shape)
     
-    def calcFlatSlopes(self):
-        self.calcFocalPlane( maskd = True)
-        self.calculateSlopes(flat = True)
-        self.flat_slopes = self.slopes
+
+    def getStatic(self):   
+        self.staticData = None 
+        phs = numpy.zeros([self.los.n_layers, self.screen_size, self.screen_size]).astype(DTYPE)
+        self.staticData = self.frame(
+                phs, iMatFrame=True).copy()
+
+    def zeroData(self, detector=True, FP=True):
+        """
+        Sets data structures in WFS to zero.
+
+        Parameters:
+            detector (bool, optional): Zero the detector? default:True
+            FP (bool, optional): Zero intermediate focal plane arrays? default: True
+        """
+
+        self.zeroPhaseData()
+
+        if FP:
+            self.pyramid_pupils[:] = 0
+            self.focal_plane[:] = 0
+
+        if detector:
+            self.detector[:] = 0

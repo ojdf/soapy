@@ -459,21 +459,21 @@ class ShackHartmann(wfs.WFS):
 
     def addPhotonNoise(self):
         """
-        Add photon noise to ``wfsDetectorPlane`` using ``numpy.random.poisson``
+        Add photon noise to ``detector`` using ``numpy.random.poisson``
         """
         self.detector[:] = numpy.random.poisson(self.detector).astype(DTYPE)
 
 
     def addReadNoise(self):
         """
-        Adds read noise to ``wfsDetectorPlane using ``numpy.random.normal``.
+        Adds read noise to ``detector`` using ``numpy.random.normal``.
         This generates a normal (guassian) distribution of random numbers to
         add to the detector. Any CCD bias is assumed to have been removed, so
         the distribution is centred around 0. The width of the distribution
         is determined by the value `eReadNoise` set in the WFS configuration.
         """
         self.detector += numpy.random.normal(
-                0, self.config.eReadNoise, self.wfsDetectorPlane.shape
+                0, self.config.eReadNoise, self.detector.shape
                 )
 
 

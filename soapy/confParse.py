@@ -757,8 +757,6 @@ class WfsConfig(ConfigObj):
                                 for the pyramid WFS (arcsec)        ``0.1``
         ``FOV``                 Field of view use in the case of    ``.5``
                                 the PWS in arcsec
-        ``detector_size``       WFS detector size(in pixel) for     ``None``
-                                the PWS. If None, taken 5*pupilsize
         ``detector``            introduce the possibility to choose ``CCD``
                                 MKID (photon counting) 
         ``nb_of_photon``        number of photon per frame         ``3.6e4``
@@ -805,7 +803,6 @@ class WfsConfig(ConfigObj):
                         ("nb_modulation", 4),
                         ("amplitude_modulation", 0.1),
                         ("FOV", 0.5),
-                        ("detector_size", None),
                         ("detector", "CCD"),
                         ("nb_of_photon", None),
                         ("pupil_separation", 10)
