@@ -23,7 +23,7 @@ saveCalic : False
 saveWfsFrames: False
 
 Atmosphere:
-  scrnNo: 1
+  scrnNo: 4
   scrnHeights: [0, 5000, 10000, 15000]
   scrnStrengths: [0.5, 0.3, 0.1, 0.1]
   windDirs: [0, 45, 90, 135]
@@ -43,7 +43,7 @@ Telescope:
 
 WFS:
   0:
-    type: Pyramid #Pyramid #ShackHartmann
+    type: Pyramid 
     GSPosition: [0, 0]
     nxSubaps: 20
     FOV: 1
@@ -55,6 +55,7 @@ WFS:
     nb_of_photon: 1000
     detector: CCD
     pupil_separation: 6
+    propagationMode: Geometric
 DM:
   0:
     type: Zernike #Zernike #KarhunenLoeve
