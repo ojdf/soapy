@@ -352,7 +352,7 @@ class singleModeFibre(PSFCamera):
     def calcInstStrehl(self):
         self.instStrehl = numpy.abs(numpy.sum(self.fibre_efield * self.EField_fov * self.normMask))**2
 
-class singleModeFibreNoInterp(PSFCamera):
+class singleModeFibre(PSFCamera):
 
     def __init__(self, soapyConfig, nSci=0, mask=None):
         '''
