@@ -330,31 +330,6 @@ class PSFCamera(object):
 class singleModeFibre(PSFCamera):
 
     def __init__(self, soapyConfig, nSci=0, mask=None):
-        scienceCam.__init__(self, soapyConfig, nSci, mask)
-
-        self.normMask = self.scaledMask / numpy.sqrt(numpy.sum(numpy.abs(self.scaledMask)**2))
-        self.fibreSize = opt.minimize_scalar(self.refCouplingLoss, bracket=[1.0, self.sim_size]).x
-        self.refStrehl = 1.0 - self.refCouplingLoss(self.fibreSize)
-        self.fibre_efield = self.fibreEfield(self.fibreSize)
-        print("Coupling efficiency: {0:.3f}".format(self.refStrehl))
-
-
-    def fibreEfield(self, size):
-        fibre_efield = aotools.gaussian2d(self.normMask.shape, (size, size))
-        fibre_efield /= numpy.sqrt(numpy.sum(numpy.abs(aotools.gaussian2d(3 * numpy.array(self.normMask.shape), (size, size)))**2))
-        return fibre_efield
-
-
-    def refCouplingLoss(self, size):
-        return 1.0 - numpy.abs(numpy.sum(self.fibreEfield(size) * self.normMask))**2
-
-
-    def calcInstStrehl(self):
-        self.instStrehl = numpy.abs(numpy.sum(self.fibre_efield * self.EField_fov * self.normMask))**2
-
-class singleModeFibre(PSFCamera):
-
-    def __init__(self, soapyConfig, nSci=0, mask=None):
         '''
         Override the inheritied __init__, because we don't need anything with FFTs
         and FOV for the SMF.
