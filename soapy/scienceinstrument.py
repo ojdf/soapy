@@ -163,10 +163,12 @@ class PSFCamera(object):
         self._long_exp_image = numpy.zeros_like(self.detector)
 
         # Calculate ideal PSF for purposes of strehl calculation
+        self.psfSum = 1
         self.los.frame()
         self.calcFocalPlane()
         self.bestPSF = self.detector.copy()
-        self.psfMax = self.bestPSF.max()
+        self.psfSum = self.bestPSF.sum()
+        self.psfMax = (self.bestPSF/self.psfSum).max()
         self.longExpStrehl = 0
         self.instStrehl = 0
 
@@ -269,7 +271,8 @@ class PSFCamera(object):
         self._long_exp_image += self.detector
 
         # Normalise the psf
-        self.detector /= self.detector.sum()
+        self.detector /= self.psfSum
+
         self.long_exp_image = self._long_exp_image / self._long_exp_image.sum()
 
 
