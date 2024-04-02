@@ -260,20 +260,16 @@ class PSFCamera(object):
             self.fov_focus_efield = self.fft_output_data
 
 
-        # Turn complex efield into intensity
+        # Turn complex efield into intensity, bin to detector pixels
         numbalib.abs_squared(self.fov_focus_efield, out=self.focus_intensity)
-
-
-        # numbalib.bin_img(self.focus_intensity, self.config.fftOversamp, self.detector)
         numbalib.bin_img(self.focus_intensity, self.config.fftOversamp, self.detector)
 
-        # add detector to long exposure image
+        # add detector to long exposure image, normalise
         self._long_exp_image += self.detector
-
-        # Normalise the psf
-        self.detector /= self.psfSum
-
         self.long_exp_image = self._long_exp_image / self._long_exp_image.sum()
+
+        # Normalise the detector (for inst Strehl/coupling computations)
+        self.detector /= self.psfSum
 
 
     def calcInstStrehl(self):
