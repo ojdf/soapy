@@ -285,7 +285,7 @@ class Sim(object):
                         self.config, nSci=nSci, mask=self.mask
                         )
 
-            self.sciImgs[nSci] = numpy.zeros( [self.config.scis[nSci].pxls]*2 )
+            self.sciImgs[nSci] = numpy.zeros( [self.sciCams[nSci].nx_pixels]*2 )
 
         # Init data storage
         logger.info("Initialise Data Storage...")
@@ -790,7 +790,7 @@ class Sim(object):
             self.sciImgsInst = {}
 
             for sci in xrange(self.config.sim.nSci):
-                self.sciImgsInst[sci] = numpy.zeros([self.config.sim.nIters,self.config.scis[sci].pxls,self.config.scis[sci].pxls])
+                self.sciImgsInst[sci] = numpy.zeros([self.config.sim.nIters,self.sciCams[sci].nx_pixels,self.sciCams[sci].nx_pixels])
 
 
         #Init Instantaneous electric field
@@ -798,7 +798,7 @@ class Sim(object):
             self.scieFieldInst = {}
 
             for sci in xrange(self.config.sim.nSci):
-                self.scieFieldInst[sci] = numpy.zeros(([self.config.sim.nIters,self.config.scis[sci].pxls,self.config.scis[sci].pxls]), dtype=complex )
+                self.scieFieldInst[sci] = numpy.zeros(([self.config.sim.nIters,self.sciCams[sci].nx_pixels,self.sciCams[sci].nx_pixels]), dtype=complex )
 
 
     def storeData(self, i):
@@ -871,16 +871,24 @@ class Sim(object):
 
         # compute final ee50d
         for sci in range(self.config.sim.nSci):
+
+            if self.sciCams[sci].nx_pixels <= 1:
+                # probably an SMF or point detector, ignore
+                self.ee50d[sci] = None
+                continue
+
             pxscale = self.sciCams[sci].fov / self.sciCams[sci].nx_pixels
             ee50d = aotools.encircled_energy(
                 self.sciImgs[sci], fraction=0.5, eeDiameter=True) * pxscale
+
             if ee50d < (self.sciCams[sci].fov / 2):
                 self.ee50d[sci] = ee50d
             else:
                 logger.info(("\nEE50d computation invalid "
-                             "due to small FoV of Science Camera {}\n").
+                            "due to small FoV of Science Camera {}\n").
                             format(sci))
                 self.ee50d[sci] = None
+
 
         if self.config.sim.simName!=None:
 
