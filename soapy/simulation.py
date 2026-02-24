@@ -872,7 +872,7 @@ class Sim(object):
         # compute final ee50d
         for sci in range(self.config.sim.nSci):
 
-            if self.sciCams[sci].nx_pixels <= 1:
+            if self.sciCams[sci].__class__.__name__ in ["singleModeFibre", "PupilEField", "PupilPhase", "PupilIntensity"]:
                 # probably an SMF or point detector, ignore
                 self.ee50d[sci] = None
                 continue
