@@ -394,6 +394,76 @@ class singleModeFibre(PSFCamera):
     def calcFocalPlane(self):
         self.detector[0,0] = self.computeCoupling()
 
+class PupilEField():
+
+    def __init__(self, soapyConfig, nSci=0, mask=None):
+        '''
+        Class to allow easier access to pupil plane EField held in the los object, 
+        through the science camera interface. 
+        '''
+        self.soapy_config = soapyConfig
+        self.config = self.sciConfig = self.soapy_config.scis[nSci]
+
+        self.simConfig = soapyConfig.sim
+
+        # Get some vital params from config
+        self.sim_size = self.soapy_config.sim.simSize
+        self.pupil_size = self.soapy_config.sim.pupilSize
+        self.sim_pad = self.soapy_config.sim.simPad
+        self.telescope_diameter = self.soapy_config.tel.telDiam
+
+        self.setMask(mask)
+
+        # If propagation direction is up, need to consider a mask in the optical propagation
+        # Otherwise, we'll apply it later
+        if self.config.propagationDir == "up":
+            los_mask = self.mask
+        else:
+            los_mask = None
+
+        self.los = lineofsight.LineOfSight(
+                self.config, self.soapy_config,
+                propagation_direction=self.config.propagationDir, mask=los_mask)
+
+        self.nx_pixels = self.config.pxls
+        self.cut = (self.los)
+        if self.nx_pixels > self.los.nx_out_pixels:
+            logger.info(f"Field npxls too large, setting from los {self.los.nx_out_pixels}")
+            self.nx_pixels = self.los.nx_out_pixels
+            self.cut = (self.los.nx_out_pixels - self.nx_pixels)//2
+        self.pxlScale = self.los.out_pixel_scale
+
+        # detector is efield from los, long exp doesn't make sense here 
+        self.detector = numpy.zeros((self.nx_pixels, self.nx_pixels), dtype=CDTYPE)
+        self.long_exp_image = numpy.zeros((1,1))
+
+        # Strehl doesn't make sense here
+        self.longExpStrehl = 0.
+        self.instStrehl = 0.
+
+        # for compatibility with simulation.py
+        self.psfMax = 1.
+        self.fov = 0.
+
+    def calcInstStrehl(self):
+        return 0.
+
+    def calcFocalPlane(self):
+        print(self.cut)
+        self.detector[:] = self.los.EField[self.cut:-self.cut,self.cut:-self.cut]
+
+    def calc_wavefronterror(self):
+        return 0.
+
+    def setMask(self, mask):
+        self.mask = mask
+
+    def frame(self, scrns, correction):
+        self.los.frame(scrns, correction=correction)
+        self.calcFocalPlane()
+        self.calcInstStrehl()
+
+        return self.detector
 
 # Compatability with older versions
 scienceCam = ScienceCam = PSF = PSFCamera
